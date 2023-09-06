@@ -8,7 +8,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use ::num_enum_derive::{
-    Default, FromPrimitive, IntoPrimitive, TryFromPrimitive, UnsafeFromPrimitive,
+    Default, FromPrimitive, IntoPrimitive, TryFromPrimitive, UnsafeFromPrimitive, AsRefPrimitive
 };
 
 use ::core::fmt;
@@ -83,6 +83,10 @@ impl<Enum: TryFromPrimitive> fmt::Display for TryFromPrimitiveError<Enum> {
 
 #[cfg(feature = "std")]
 impl<Enum: TryFromPrimitive> ::std::error::Error for TryFromPrimitiveError<Enum> {}
+
+pub trait AsRefPrimitive<T> {
+    fn as_ref_primitive(&self) -> &T;
+}
 
 // This trait exists to try to give a more clear error message when someone attempts to derive both FromPrimitive and TryFromPrimitive.
 // This isn't allowed because both end up creating a `TryFrom<primitive>` implementation.

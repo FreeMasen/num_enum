@@ -62,6 +62,71 @@ pub fn derive_into_primitive(input: TokenStream) -> TokenStream {
     })
 }
 
+/// Implements `AsRef<Primitive>` for a `#[repr(Primitive)] enum`.
+///
+///
+/// ## Allows turning an enum as a reference to a primitive type.
+///
+/// ```rust
+/// use num_enum::AsRefPrimitive;
+/// use ::std::collections::HashSet;
+/// #[derive(AsRefPrimitive)]
+/// #[repr(u8)]
+/// enum Enum {
+///     Zero,
+///     One,
+///     Two,
+/// }
+///  let hash_set = (0..3u8).filter(|v| v % 2 == 0).collect::<HashSet<_>>();
+///  let zero: &u8 = Enum::Zero.as_ref();
+///  assert!(hash_set.contains(zero));
+///  
+///  let one: &u8 = Enum::One.as_ref();
+///  assert!(!hash_set.contains(one));
+///  
+///  let two: &u8 = Enum::Two.as_ref();
+///  assert!(hash_set.contains(two));
+/// ```
+#[proc_macro_derive(AsRefPrimitive)]
+pub fn derive_as_ref_primitive(input: TokenStream) -> TokenStream {
+    let enum_info = parse_macro_input!(input as EnumInfo);
+    let name = &enum_info.name;
+    let repr = &enum_info.repr;
+    let variant_idents: Vec<Ident> = enum_info.variant_idents();
+    let expression_idents: Vec<Vec<Ident>> = enum_info.expression_idents();
+    let variant_expressions: Vec<Vec<Expr>> = enum_info.variant_expressions();
+
+
+    TokenStream::from(quote! {
+        impl AsRefPrimitive<#repr> for #name {
+            #[inline]
+            fn as_ref_primitive(&self) -> &#repr
+            {
+                // Use intermediate const(s) so that enums defined like
+                // `Two = ONE + 1u8` work properly.
+                #![allow(non_upper_case_globals)]
+                #(
+                    #(
+                        const #expression_idents: #repr = #variant_expressions;
+                    )*
+                )*
+                #[deny(unreachable_patterns)]
+                match self {
+                    #(
+                        #(Self::#variant_idents => &#expression_idents,)*
+                    )*
+                }
+            }
+        }
+
+        impl ::core::convert::AsRef<#repr> for #name {
+            fn as_ref(&self) -> &#repr {
+                self.as_ref_primitive()
+            }
+        }
+    })
+}
+
 /// Implements `From<Primitive>` for a `#[repr(Primitive)] enum`.
 ///
 /// Turning a primitive into an enum with `from`.
